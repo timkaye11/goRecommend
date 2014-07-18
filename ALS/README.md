@@ -1,6 +1,6 @@
 ### Alternating Least Squares (ALS)
 
-> Uses the ALS algorithm outlined in [this article](http://wanlab.poly.edu/recsys12/recsys/p83.pdf) for the explicit case
+> Uses the ALS algorithm outlined in [this article](http://wanlab.poly.edu/recsys12/recsys/p83.pdf) for the explicit case. 
 For the implicit case, the algorithm is outlined [here](labs.yahoo.com/files/HuKorenVolinsky-ICDM08.pdf)
 
 Relies on Skelter John's *matrix.go* package for some matrix functionality. 
