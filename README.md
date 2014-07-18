@@ -1,7 +1,6 @@
 ## Go Recommend 
 
 > Recommendation algorithms (Collaborative Filtering) in Go! 
-> :family: :bulb:
 
 ### Background 
 Collaborative Filtering (CF) is oftentimes used for item recommendations for users, and many libraries exist for other languages (popular implementations include Mahout, Prediction.IO, Apache MLLib ALS etc..). As there are very few machine learning packages out there for [Go](http://www.golang.org), I decided to put together some model based CF algorithms that I thought were interesting. Programming in Go has many benefits - namely speed/efficiency, but also the bare-bones nature allows for more customization and makes ML programming less black-box-y. 
