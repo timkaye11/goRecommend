@@ -1,4 +1,4 @@
-package main
+package ALS
 
 import (
 	"fmt"
@@ -31,17 +31,31 @@ func MakeWeightMatrix(mat *DenseMatrix) *DenseMatrix {
 	return MakeDenseMatrix(newvalues, mat.Rows(), mat.Cols())
 }
 
+// creates the confidence matrix for the implicit ALS algorithm
+func MakeCMatrix(mat *DenseMatrix) *DenseMatrix {
+	values := mat.Array()
+	newvalues := make([]float64, len(values))
+	for i := 0; i < len(values); i++ {
+		if values[i] == 0.0 || math.IsNaN(values[i]) {
+			newvalues[i] = 1
+		} else {
+			newvalues[i] = 1 + 20*values[i] // the value of 20 for confidence was
+		} // recommended by the aforementioned paper regarding implicit ALS
+	}
+	return MakeDenseMatrix(newvalues, mat.Rows(), mat.Cols())
+}
+
 // create X and Y matrices for the ALS algorithm
-func MakeXY(mat *DenseMatrix, n_factors int) (X, Y *DenseMatrix) {
+func MakeXY(mat *DenseMatrix, n_factors int, max_rating float64) (X, Y *DenseMatrix) {
 	rows := mat.Rows()
 	cols := mat.Cols()
 	X_data := make([]float64, rows*n_factors)
 	Y_data := make([]float64, cols*n_factors)
 	for i := 0; i < len(X_data); i++ {
-		X_data[i] = 5 * rand.Float64()
+		X_data[i] = max_rating * rand.Float64()
 	}
 	for j := 0; j < len(Y_data); j++ {
-		Y_data[j] = 5 * rand.Float64()
+		Y_data[j] = max_rating * rand.Float64()
 	}
 	X = MakeDenseMatrix(X_data, rows, n_factors)
 	Y = MakeDenseMatrix(Y_data, n_factors, cols)
@@ -95,7 +109,7 @@ func SimpleTimes(mat, weight *DenseMatrix) *DenseMatrix {
 	return MakeDenseMatrix(matValues, mat.Rows(), mat.Cols())
 }
 
-// Gets the error for the alternating least squares algorithm
+// Gets the error for the alternating least squares algorithm. Used for Explicit ALS
 func GetErrorInline(W, Q, X, Y *DenseMatrix) float64 {
 	dot, err := X.TimesDense(Y)
 	errcheck(err)
@@ -105,39 +119,6 @@ func GetErrorInline(W, Q, X, Y *DenseMatrix) float64 {
 	tosum := SimpleTimes(Prod, Prod)
 	sum := SumMatrix(tosum)
 	return sum
-}
-
-// Alternating Least Sqaures for Collaborative Filtering w/o weighting.
-func ALS_Simple(Q *DenseMatrix, iterations, n_factors int, lambda float64) *DenseMatrix {
-	X, Y := MakeXY(Q, n_factors)
-
-	// iterate until convergence
-	for i := 0; i < iterations; i++ {
-		// save for later use - scaled identity matrix
-		I := Eye(n_factors)
-		I.Scale(lambda)
-
-		Y_dot, err := Y.TimesDense(Y.Transpose())
-		errcheck(err)
-
-		// add scaled identity to dot prod of Y and Y^T
-		Y_dot.AddDense(I)
-		X_toSolve, _ := Y.TimesDense(Q.Transpose())
-
-		// solve for X
-		X = MatrixSolver(Y_dot, X_toSolve)
-		X = X.Transpose()
-
-		// Now solve for Y
-		X_dot, err := X.TimesDense(X.Transpose())
-		errcheck(err)
-		X_dot.AddDense(I)
-		Y_toSolve, _ := X.TimesDense(Q)
-		Y = MatrixSolver(X_dot, Y_toSolve).Transpose()
-		X = X.Transpose()
-	}
-	Q_hat, _ := X.TimesDense(Y)
-	return Q_hat
 }
 
 // a function to set the values for a given row
@@ -164,12 +145,54 @@ func setCol(mat *DenseMatrix, which int, col []float64) *DenseMatrix {
 	return mat
 }
 
+// function to substract the minimum from all elements of the matrix
+func MatrixMinMinus(mat *DenseMatrix) *DenseMatrix {
+	values := mat.Array()
+	min := float64(100)
+	for i := 0; i < len(values); i++ {
+		if values[i] < min {
+			min = values[i]
+		}
+	}
+	for i := 0; i < len(values); i++ {
+		values[i] -= min
+	}
+	return MakeDenseMatrix(values, mat.Rows(), mat.Cols())
+}
+
+// returns the max value of the (dense)matrix
+func MatrixMax(mat *DenseMatrix) float64 {
+	values := mat.Array()
+	max := float64(0)
+	for i := 0; i < len(values); i++ {
+		if values[i] > max {
+			max = values[i]
+		}
+	}
+	return max
+}
+
+// returns the index of the max value of a slice
+func argmax(args []float64) (index int) {
+	index = 0
+	first := 0.0
+	for idx, val := range args {
+		if val > first {
+			index = idx
+			first = val
+		}
+	}
+	return
+}
+
 // Alternating Least Squares w/weighting to produce better recommendations
+// FOR THE EXPLICIT CASE
 // Follows the matrix formulas for X and Y outlined in:
 // 				wanlab.poly.edu/recsys12/recsys/p83.pdf
-func ALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
+func trainALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
 	W := MakeWeightMatrix(Q)
-	X, Y := MakeXY(Q, n_factors)
+	max_rating := MatrixMax(Q)
+	X, Y := MakeXY(Q, n_factors, max_rating)
 	errors := make([]float64, 0)
 
 	for ii := 0; ii < iterations; ii++ {
@@ -212,44 +235,51 @@ func ALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix
 	return weighted_Qhat
 }
 
-// function to substract the minimum from all elements of the matrix
-func MatrixMinMinus(mat *DenseMatrix) *DenseMatrix {
-	values := mat.Array()
-	min := float64(100)
-	for i := 0; i < len(values); i++ {
-		if values[i] < min {
-			min = values[i]
-		}
-	}
-	for i := 0; i < len(values); i++ {
-		values[i] -= min
-	}
-	return MakeDenseMatrix(values, mat.Rows(), mat.Cols())
-}
+// Alternating Least Squares for the Implicit Case
+// Follows the matrix formulas for X and Y outlined in:
+// 	'Collaborative Filtering For Implicit Feedback Datasets' by Hu, Koren et al.
+//
+// C represents the confidence levels derived from the raw observations R, and P is the preferences for values
+func trainALS_Implicit(R *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
+	P := MakeWeightMatrix(R)
+	C := MakeCMatrix(R)
+	X, Y := MakeXY(R, n_factors, 1)
 
-// returns the max value of the (dense)matrix
-func MatrixMax(mat *DenseMatrix) float64 {
-	values := mat.Array()
-	max := float64(0)
-	for i := 0; i < len(values); i++ {
-		if values[i] > max {
-			max = values[i]
-		}
-	}
-	return max
-}
+	for ii := 0; ii < iterations; ii++ {
+		// scaled identity matrix
+		I := Eye(n_factors)
+		I.Scale(lambda)
 
-// returns the index of the max value of a slice
-func argmax(args []float64) (index int) {
-	index = 0
-	first := 0.0
-	for idx, val := range args {
-		if val > first {
-			index = idx
-			first = val
+		// solve for X
+		for u := 0; u < P.Rows(); u++ {
+			weightedRow := C.GetRowVector(u).Array()
+			c_yt, _ := Diagonal(weightedRow).TimesDense(Y.Transpose())
+			y_ct_yt, _ := Y.TimesDense(c_yt)
+			y_ct_yt.AddDense(I)
+
+			p_u := P.GetRowVector(u).Transpose()
+			cu_pu, _ := Diagonal(weightedRow).TimesDense(p_u)
+			x_tosolve, _ := Y.TimesDense(cu_pu)
+			new_row, _ := y_ct_yt.Solve(x_tosolve)
+			X = setRow(X, u, new_row.Array())
+		}
+
+		// now alternate to solve for Y
+		for i := 0; i < P.Cols(); i++ {
+			weightedCol := C.GetColVector(i).Transpose().Array()
+			c_x, _ := Diagonal(weightedCol).TimesDense(X)
+			x_t_c_x, _ := X.Transpose().TimesDense(c_x)
+			x_t_c_x.AddDense(I)
+
+			p_i := P.GetColVector(i)
+			ci_pi, _ := Diagonal(weightedCol).TimesDense(p_i)
+			y_tosolve, _ := X.Transpose().TimesDense(ci_pi)
+			new_col, _ := x_t_c_x.Solve(y_tosolve)
+			Y = setCol(Y, i, new_col.Array())
 		}
 	}
-	return
+	weighted_Qhat, _ := X.TimesDense(Y)
+	return weighted_Qhat
 }
 
 // looks at the model generated by ALS and makes predictions/reads the matrix
