@@ -90,6 +90,30 @@ func SumMatrix(mat *DenseMatrix) (sum float64) {
 	return
 }
 
+// Auxilliary function for Matrix Solver.
+func SwapCols(mat *DenseMatrix, i, j int) *DenseMatrix {
+	p := mat.Copy()
+	trans := p.Transpose()
+	trans.SwapRows(i, j)
+	toret := trans.Transpose()
+	return toret
+}
+
+// solves AX = B using matrix inversion. Utilizes the Solve method from
+// Skelter John's matrix package, and creates the X matrix s.t AX = B.
+func MatrixSolver(mat, outcome *DenseMatrix) *DenseMatrix {
+	rows := make([]float64, 0)
+	firstRow, _ := mat.SolveDense(outcome)
+	rows = append(rows, firstRow.Array()...)
+	for i := 1; i < mat.Cols(); i++ {
+		matrix := mat.Copy()
+		swapped := SwapCols(outcome, 0, i)
+		value, _ := matrix.SolveDense(swapped)
+		rows = append(rows, value.Array()...)
+	}
+	return MakeDenseMatrix(rows, mat.Rows(), mat.Cols())
+}
+
 // Scales matrix mat by weight.
 func SimpleTimes(mat, weight *DenseMatrix) *DenseMatrix {
 	if len(mat.Array()) != len(weight.Array()) {
@@ -116,53 +140,97 @@ func GetError(W, Q, X, Y *DenseMatrix) float64 {
 }
 
 // Alternating Least Sqaures for Collaborative Filtering
-func ALS(Q, W, X, Y *DenseMatrix, iterations, n_factors int) *DenseMatrix {
+func ALS(Q *DenseMatrix, iterations, n_factors int) *DenseMatrix {
+	X, Y := MakeXY(Q, n_factors)
+	W := MakeWeightMatrix(Q)
+
+	// iterate until convergence
 	for i := 0; i < iterations; i++ {
+		// save for later use - scaled identity matrix
 		I := Eye(n_factors)
 		I.Scale(lambda)
 
 		Y_dot, err := Y.TimesDense(Y.Transpose())
 		errcheck(err)
+
+		// add scaled identity to dot prod of Y and Y^T
 		Y_dot.AddDense(I)
 		X_toSolve, _ := Y.TimesDense(Q.Transpose())
-		//X, _ = Y_dot.SolveDense(X_toSolve)
+
+		// solve for X
 		X = MatrixSolver(Y_dot, X_toSolve)
 		X = X.Transpose()
 
-		X_dot, err := X.Transpose().TimesDense(X)
+		// Now solve for Y
+		X_dot, err := X.TimesDense(X.Transpose())
 		errcheck(err)
 		X_dot.AddDense(I)
-		Y_toSolve, _ := Q.TimesDense(X.Transpose())
-		//Y, _ = X_dot.SolveDense(Y_toSolve)
-		Y = MatrixSolver(X_dot, Y_toSolve)
+		Y_toSolve, _ := X.TimesDense(Q)
+		Y = MatrixSolver(X_dot, Y_toSolve).Transpose()
+		X = X.Transpose()
 	}
 	Q_hat, _ := X.TimesDense(Y)
 	return Q_hat
-
 }
 
-// Auxilliary function for Matrix Solver.
-func SwapCols(mat *DenseMatrix, i, j int) *DenseMatrix {
-	p := mat.Copy()
-	trans := p.Transpose()
-	trans.SwapRows(i, j)
-	toret := trans.Transpose()
-	return toret
-}
-
-// solves AX = B using matrix inversion. Utilizes the Solve method from
-// Skelter John's matrix package, and creates the X matrix s.t AX = B.
-func MatrixSolver(mat, outcome *DenseMatrix) *DenseMatrix {
-	rows := make([]float64, 0)
-	firstRow, _ := mat.SolveDense(outcome)
-	rows = append(rows, firstRow.Array()...)
-	for i := 1; i < mat.Cols(); i++ {
-		matrix := mat.Copy()
-		swapped := SwapCols(outcome, 0, i)
-		value, _ := matrix.SolveDense(swapped)
-		rows = append(rows, value.Array()...)
+// function to substract the minimum from all elements of the matrix
+func MatrixMinMinus(mat *DenseMatrix) *DenseMatrix {
+	values := mat.Array()
+	min := float64(100)
+	for i := 0; i < len(values); i++ {
+		if values[i] < min {
+			min = values[i]
+		}
 	}
-	return MakeDenseMatrix(rows, mat.Rows(), mat.Cols())
+	for i := 0; i < len(values); i++ {
+		values[i] -= min
+	}
+	return MakeDenseMatrix(values, mat.Rows(), mat.Cols())
+}
+
+// returns the max value of the (dense)matrix
+func MatrixMax(mat *DenseMatrix) float64 {
+	values := mat.Array()
+	max := float64(0)
+	for i := 0; i < len(values); i++ {
+		if values[i] > max {
+			max = values[i]
+		}
+	}
+	return max
+}
+
+// returns the index of the max value of a slice
+func argmax(args []float64) (index int) {
+	index = 0
+	first := 0.0
+	for idx, val := range args {
+		if val > first {
+			index = idx
+			first = val
+		}
+	}
+	return
+}
+
+func Predict(W, Q, Q_hat *DenseMatrix) []int {
+	Qhat := Q_hat.Copy()
+	Qhat = MatrixMinMinus(Qhat)
+	maxRating := MatrixMax(Q)
+	qhatMax := float64(maxRating) / MatrixMax(Qhat)
+	Qhat.Scale(qhatMax)
+	W.Scale(maxRating)
+	err := Qhat.SubtractDense(W)
+	errcheck(err)
+
+	// find the max value for each row in Q_hat
+	max_indices := make([]int, Qhat.Rows())
+	for i := 0; i < Qhat.Rows(); i++ {
+		i_row := Q_hat.rowSlice(i)
+		max_indices[i] = argmax(i_row)
+		fmt.Printf("User w/ID: %v will like product w/ID: %v \n", i, max_indices[i])
+	}
+	return max_indices
 }
 
 func main() {
@@ -188,23 +256,10 @@ func main() {
 		2.25101798, 2.5705109, 2.66376777, 2.17691912, 0.25290882}, 5, 5)
 
 	fmt.Println(GetError(W, Q.Copy(), XT, YT))
-	//	val, _ := XT.TimesDense(YT)
 
-	fmt.Println(ALS(Q, W, XT, YT, 1, 5))
+	Qhat := ALS(Q, 1, 5)
+	fmt.Println(Qhat)
 
-	I := Eye(5)
-	I.Scale(lambda)
-
-	Y_dot, err := YT.TimesDense(YT.Transpose())
-	errcheck(err)
-	Y_dot.AddDense(I)
-	X_toSolve, _ := YT.TimesDense(Q.Transpose())
-	XT, _ = Y_dot.SolveDense(X_toSolve)
-	//fmt.Println(Y_dot)
-	fmt.Println(X_toSolve)
-	XT = XT.Transpose()
-	//fmt.Println(XT)
-	fmt.Println("\n\n")
-	fmt.Println(MatrixSolver(Y_dot, X_toSolve))
+	fmt.Println(GetError(W, Qhat.Copy(), XT, YT))
 
 }
