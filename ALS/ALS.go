@@ -1,4 +1,4 @@
-package main // ALS
+package ALS
 
 import (
 	"errors"
@@ -140,9 +140,8 @@ func GetError(W, Q, X, Y *DenseMatrix) float64 {
 }
 
 // Alternating Least Sqaures for Collaborative Filtering
-func ALS(Q *DenseMatrix, iterations, n_factors int) *DenseMatrix {
+func ALS_Simple(Q *DenseMatrix, iterations, n_factors int) *DenseMatrix {
 	X, Y := MakeXY(Q, n_factors)
-	W := MakeWeightMatrix(Q)
 
 	// iterate until convergence
 	for i := 0; i < iterations; i++ {
@@ -171,6 +170,67 @@ func ALS(Q *DenseMatrix, iterations, n_factors int) *DenseMatrix {
 	}
 	Q_hat, _ := X.TimesDense(Y)
 	return Q_hat
+}
+
+// a function to set the values for a given row
+func setRow(mat *DenseMatrix, which int, row []float64) *DenseMatrix {
+	if mat.Cols() != len(row) {
+		fmt.Println("The row to set needs to be the same dimension as the matrix")
+	}
+	// iterate over columns to set the values for a selected row
+	for i := 0; i < mat.Cols(); i++ {
+		mat.Set(which, i, row[i])
+	}
+	return mat
+}
+
+// a function to set the values for a given column
+func setCol(mat *DenseMatrix, which int, col []float64) *DenseMatrix {
+	if mat.Rows() != len(col) {
+		fmt.Println("The column to set needs to be the same dimension as the matrix")
+	}
+	// iterate over rows to set the values for a selected columns
+	for i := 0; i < mat.Rows(); i++ {
+		mat.Set(i, which, col[i])
+	}
+	return mat
+}
+
+func ALS(Q, X, Y *DenseMatrix, iterations, n_factors int) *DenseMatrix {
+	W := MakeWeightMatrix(Q)
+
+	for ii := 0; ii < iterations; ii++ {
+		I := Eye(n_factors)
+		I.Scale(lambda)
+
+		for u := 0; u < Q.Rows(); u++ {
+			weightedRow := W.GetRowVector(u).Array()
+			w_yt, _ := Diagonal(weightedRow).TimesDense(Y.Transpose())
+			y_wt_yt, _ := Y.TimesDense(w_yt)
+			y_wt_yt.AddDense(I)
+
+			q_u := Q.GetRowVector(u).Transpose()
+			wu_qu, _ := Diagonal(weightedRow).TimesDense(q_u)
+			x_tosolve, _ := Y.TimesDense(wu_qu)
+			new_row, _ := y_wt_yt.Solve(x_tosolve)
+			X = setRow(X, u, new_row.Array())
+		}
+
+		for i := 0; i < Q.Cols(); i++ {
+			weightedCol := W.GetColVector(i).Array()
+			w_x, _ := Diagonal(weightedCol).TimesDense(X)
+			x_t_w_x, _ := X.Transpose().TimesDense(w_x)
+			x_t_w_x.AddDense(I)
+
+			q_i := Q.GetColVector(i)
+			wi_qi, _ := Diagonal(weightedCol).TimesDense(q_i)
+			y_tosolve, _ := X.Transpose().TimesDense(wi_qi)
+			new_col, _ := x_t_w_x.Solve(y_tosolve)
+			Y = setCol(Y, i, new_col.Array())
+		}
+	}
+	weighted_Qhat, _ := X.TimesDense(Y)
+	return weighted_Qhat
 }
 
 // function to substract the minimum from all elements of the matrix
@@ -226,40 +286,9 @@ func Predict(W, Q, Q_hat *DenseMatrix) []int {
 	// find the max value for each row in Q_hat
 	max_indices := make([]int, Qhat.Rows())
 	for i := 0; i < Qhat.Rows(); i++ {
-		i_row := Q_hat.rowSlice(i)
-		max_indices[i] = argmax(i_row)
+		i_row := Qhat.GetRowVector(i)
+		max_indices[i] = argmax(i_row.Array())
 		fmt.Printf("User w/ID: %v will like product w/ID: %v \n", i, max_indices[i])
 	}
 	return max_indices
-}
-
-func main() {
-	// 0's indicate NA's
-	// For this instance, cols indicate movie ID ; rows indicate userID
-	Q := MakeDenseMatrix([]float64{5, 5, 5, 5, 1,
-		0, 0, 0, 4, 1,
-		1, 2, 3, 3, 1,
-		2, 2, 2, 1, 0,
-		5, 2, 5, 1, 0}, 5, 5)
-
-	W := MakeWeightMatrix(Q)
-	//X, Y := MakeXY(Q, 5)
-	XT := MakeDenseMatrix([]float64{1.85573851, 0.7969648, 0.56948032, 2.7325095, 3.26833747,
-		2.0448829, 4.98801804, 4.99830168, 2.69795169, 3.5537049,
-		4.14321262, 1.38068421, 4.18672857, 1.56950527, 1.72737021,
-		4.13532677, 3.89585519, 0.73849721, 1.25576478, 0.07823237,
-		1.39345008, 2.57900365, 2.63576582, 3.91586586, 3.35085364}, 5, 5)
-	YT := MakeDenseMatrix([]float64{0.14719139, 4.00940444, 3.3813894, 3.87346365, 0.90669916,
-		0.83974263, 1.73973142, 0.16262076, 3.91060583, 1.81874077,
-		3.92818648, 3.38339231, 0.99215264, 3.10931533, 1.44353955,
-		4.11526834, 0.70579904, 3.23214613, 3.77848242, 3.21096918,
-		2.25101798, 2.5705109, 2.66376777, 2.17691912, 0.25290882}, 5, 5)
-
-	fmt.Println(GetError(W, Q.Copy(), XT, YT))
-
-	Qhat := ALS(Q, 1, 5)
-	fmt.Println(Qhat)
-
-	fmt.Println(GetError(W, Qhat.Copy(), XT, YT))
-
 }
