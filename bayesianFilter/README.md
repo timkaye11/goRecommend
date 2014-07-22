@@ -26,6 +26,8 @@ func main() {
 }
 ```
 
+---
+ 
 #### More Info
 Some more information about BCF can be found at
  - [A Bayesian Model for Collaboritive Filtering](http://www-stat.wharton.upenn.edu/~edgeorge/Research_papers/Bcollab.pdf)

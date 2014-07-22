@@ -1,10 +1,13 @@
 package ALS
 
 import (
+	"errors"
 	"fmt"
 	. "github.com/skelterjohn/go.matrix"
 	"math"
 	"math/rand"
+	"sort"
+	"strconv"
 )
 
 var (
@@ -39,14 +42,15 @@ func MakeCMatrix(mat *DenseMatrix) *DenseMatrix {
 		if values[i] == 0.0 || math.IsNaN(values[i]) {
 			newvalues[i] = 1
 		} else {
-			newvalues[i] = 1 + 20*values[i] // the value of 20 for confidence was
+			newvalues[i] = 1 + 40*values[i] // the value of 20 for confidence was
 		} // recommended by the aforementioned paper regarding implicit ALS
 	}
 	return MakeDenseMatrix(newvalues, mat.Rows(), mat.Cols())
 }
 
 // create X and Y matrices for the ALS algorithm
-func MakeXY(mat *DenseMatrix, n_factors int, max_rating float64) (X, Y *DenseMatrix) {
+func MakeXY(mat *DenseMatrix, n_factors int, max_rating float64, seed int) (X, Y *DenseMatrix) {
+	rand.Seed(int64(seed))
 	rows := mat.Rows()
 	cols := mat.Cols()
 	X_data := make([]float64, rows*n_factors)
@@ -63,7 +67,7 @@ func MakeXY(mat *DenseMatrix, n_factors int, max_rating float64) (X, Y *DenseMat
 }
 
 // adds up all the elements of the array
-func SumMatrix(mat *DenseMatrix) (sum float64) {
+func sumMatrix(mat *DenseMatrix) (sum float64) {
 	values := mat.Array()
 	sum = float64(0)
 	for i := 0; i < len(values); i++ {
@@ -73,7 +77,7 @@ func SumMatrix(mat *DenseMatrix) (sum float64) {
 }
 
 // Auxilliary function for Matrix Solver.
-func SwapCols(mat *DenseMatrix, i, j int) *DenseMatrix {
+func swapCols(mat *DenseMatrix, i, j int) *DenseMatrix {
 	p := mat.Copy()
 	trans := p.Transpose()
 	trans.SwapRows(i, j)
@@ -81,23 +85,8 @@ func SwapCols(mat *DenseMatrix, i, j int) *DenseMatrix {
 	return toret
 }
 
-// solves AX = B using matrix inversion. Utilizes the Solve method from
-// Skelter John's matrix package, and creates the X matrix s.t AX = B.
-func MatrixSolver(mat, outcome *DenseMatrix) *DenseMatrix {
-	rows := make([]float64, 0)
-	firstRow, _ := mat.SolveDense(outcome)
-	rows = append(rows, firstRow.Array()...)
-	for i := 1; i < mat.Cols(); i++ {
-		matrix := mat.Copy()
-		swapped := SwapCols(outcome, 0, i)
-		value, _ := matrix.SolveDense(swapped)
-		rows = append(rows, value.Array()...)
-	}
-	return MakeDenseMatrix(rows, mat.Rows(), mat.Cols())
-}
-
 // Scales matrix mat by weight.
-func SimpleTimes(mat, weight *DenseMatrix) *DenseMatrix {
+func simpleTimes(mat, weight *DenseMatrix) *DenseMatrix {
 	if len(mat.Array()) != len(weight.Array()) {
 		return nil
 	}
@@ -110,14 +99,15 @@ func SimpleTimes(mat, weight *DenseMatrix) *DenseMatrix {
 }
 
 // Gets the error for the alternating least squares algorithm. Used for Explicit ALS
-func GetErrorInline(W, Q, X, Y *DenseMatrix) float64 {
+func getErrorInline(W, q, X, Y *DenseMatrix) float64 {
+	Q := q.Copy()
 	dot, err := X.TimesDense(Y)
 	errcheck(err)
 	err = Q.SubtractDense(dot)
 	errcheck(err)
-	Prod := SimpleTimes(Q, W)
-	tosum := SimpleTimes(Prod, Prod)
-	sum := SumMatrix(tosum)
+	Prod := simpleTimes(Q, W)
+	tosum := simpleTimes(Prod, Prod)
+	sum := sumMatrix(tosum)
 	return sum
 }
 
@@ -146,7 +136,7 @@ func setCol(mat *DenseMatrix, which int, col []float64) *DenseMatrix {
 }
 
 // function to substract the minimum from all elements of the matrix
-func MatrixMinMinus(mat *DenseMatrix) *DenseMatrix {
+func matrixMinMinus(mat *DenseMatrix) *DenseMatrix {
 	values := mat.Array()
 	min := float64(100)
 	for i := 0; i < len(values); i++ {
@@ -161,7 +151,7 @@ func MatrixMinMinus(mat *DenseMatrix) *DenseMatrix {
 }
 
 // returns the max value of the (dense)matrix
-func MatrixMax(mat *DenseMatrix) float64 {
+func matrixMax(mat *DenseMatrix) float64 {
 	values := mat.Array()
 	max := float64(0)
 	for i := 0; i < len(values); i++ {
@@ -172,27 +162,15 @@ func MatrixMax(mat *DenseMatrix) float64 {
 	return max
 }
 
-// returns the index of the max value of a slice
-func argmax(args []float64) (index int) {
-	index = 0
-	first := 0.0
-	for idx, val := range args {
-		if val > first {
-			index = idx
-			first = val
-		}
-	}
-	return
-}
-
 // Alternating Least Squares w/weighting to produce better recommendations
 // FOR THE EXPLICIT CASE
 // Follows the matrix formulas for X and Y outlined in:
 // 				wanlab.poly.edu/recsys12/recsys/p83.pdf
-func trainALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
+func TrainALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) (*DenseMatrix, float64) {
 	W := MakeWeightMatrix(Q)
-	max_rating := MatrixMax(Q)
-	X, Y := MakeXY(Q, n_factors, max_rating)
+	maxval := matrixMax(Q)
+	X, Y := MakeXY(Q, n_factors, maxval, 47)
+	// to store error values
 	errors := make([]float64, 0)
 
 	for ii := 0; ii < iterations; ii++ {
@@ -206,33 +184,35 @@ func trainALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) *DenseM
 			w_yt, _ := Diagonal(weightedRow).TimesDense(Y.Transpose())
 			y_wt_yt, _ := Y.TimesDense(w_yt)
 			y_wt_yt.AddDense(I)
+			y_wt_ytInv, _ := y_wt_yt.Inverse()
 
 			q_u := Q.GetRowVector(u).Transpose()
 			wu_qu, _ := Diagonal(weightedRow).TimesDense(q_u)
 			x_tosolve, _ := Y.TimesDense(wu_qu)
-			new_row, _ := y_wt_yt.Solve(x_tosolve)
+			new_row, _ := y_wt_ytInv.TimesDense(x_tosolve)
 			X = setRow(X, u, new_row.Array())
 		}
-
 		// now alternate to solve for Y
 		for i := 0; i < Q.Cols(); i++ {
 			weightedCol := W.GetColVector(i).Transpose().Array()
 			w_x, _ := Diagonal(weightedCol).TimesDense(X)
 			x_t_w_x, _ := X.Transpose().TimesDense(w_x)
 			x_t_w_x.AddDense(I)
+			x_t_w_xInv, _ := x_t_w_x.Inverse()
 
 			q_i := Q.GetColVector(i)
 			wi_qi, _ := Diagonal(weightedCol).TimesDense(q_i)
 			y_tosolve, _ := X.Transpose().TimesDense(wi_qi)
-			new_col, _ := x_t_w_x.Solve(y_tosolve)
+			new_col, _ := x_t_w_xInv.TimesDense(y_tosolve)
 			Y = setCol(Y, i, new_col.Array())
 		}
-		error_value := GetErrorInline(W, Q, X, Y)
+		// Calculate the error values at each iteration
+		error_value := getErrorInline(W, Q, X, Y)
 		errors = append(errors, error_value)
 	}
-	fmt.Printf("Final Error value of: %v", errors[len(errors)-1])
+	fmt.Printf("\nFinal Error value of: %v\n", errors[len(errors)-1])
 	weighted_Qhat, _ := X.TimesDense(Y)
-	return weighted_Qhat
+	return weighted_Qhat, errors[len(errors)-1]
 }
 
 // Alternating Least Squares for the Implicit Case
@@ -240,10 +220,10 @@ func trainALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) *DenseM
 // 	'Collaborative Filtering For Implicit Feedback Datasets' by Hu, Koren et al.
 //
 // C represents the confidence levels derived from the raw observations R, and P is the preferences for values
-func trainALS_Implicit(R *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
+func TrainALS_Implicit(R *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
 	P := MakeWeightMatrix(R)
 	C := MakeCMatrix(R)
-	X, Y := MakeXY(R, n_factors, 1)
+	X, Y := MakeXY(R, n_factors, 5, 47)
 
 	for ii := 0; ii < iterations; ii++ {
 		// scaled identity matrix
@@ -251,30 +231,32 @@ func trainALS_Implicit(R *DenseMatrix, n_factors, iterations int, lambda float64
 		I.Scale(lambda)
 
 		// solve for X
-		for u := 0; u < P.Rows(); u++ {
+		for u := 0; u < C.Rows(); u++ {
 			weightedRow := C.GetRowVector(u).Array()
-			c_yt, _ := Diagonal(weightedRow).TimesDense(Y.Transpose())
-			y_ct_yt, _ := Y.TimesDense(c_yt)
+			c_yt, _ := Diagonal(weightedRow).TimesDense(Y)
+			y_ct_yt, _ := Y.Transpose().TimesDense(c_yt)
 			y_ct_yt.AddDense(I)
+			y_ct_ytInv, _ := y_ct_yt.Inverse()
 
 			p_u := P.GetRowVector(u).Transpose()
 			cu_pu, _ := Diagonal(weightedRow).TimesDense(p_u)
-			x_tosolve, _ := Y.TimesDense(cu_pu)
-			new_row, _ := y_ct_yt.Solve(x_tosolve)
+			x_tosolve, _ := Y.Transpose().TimesDense(cu_pu)
+			new_row, _ := y_ct_ytInv.TimesDense(x_tosolve)
 			X = setRow(X, u, new_row.Array())
 		}
 
 		// now alternate to solve for Y
-		for i := 0; i < P.Cols(); i++ {
+		for i := 0; i < C.Cols(); i++ {
 			weightedCol := C.GetColVector(i).Transpose().Array()
 			c_x, _ := Diagonal(weightedCol).TimesDense(X)
 			x_t_c_x, _ := X.Transpose().TimesDense(c_x)
 			x_t_c_x.AddDense(I)
+			x_t_c_xInv, _ := x_t_c_x.Inverse()
 
 			p_i := P.GetColVector(i)
 			ci_pi, _ := Diagonal(weightedCol).TimesDense(p_i)
 			y_tosolve, _ := X.Transpose().TimesDense(ci_pi)
-			new_col, _ := x_t_c_x.Solve(y_tosolve)
+			new_col, _ := x_t_c_xInv.TimesDense(y_tosolve)
 			Y = setCol(Y, i, new_col.Array())
 		}
 	}
@@ -282,23 +264,54 @@ func trainALS_Implicit(R *DenseMatrix, n_factors, iterations int, lambda float64
 	return weighted_Qhat
 }
 
-// looks at the model generated by ALS and makes predictions/reads the matrix
-func Predict(W, Q, Q_hat *DenseMatrix) []int {
-	Qhat := Q_hat.Copy()
-	Qhat = MatrixMinMinus(Qhat)
-	maxRating := MatrixMax(Q)
-	qhatMax := float64(maxRating) / MatrixMax(Qhat)
-	Qhat.Scale(qhatMax)
-	W.Scale(maxRating)
-	err := Qhat.SubtractDense(W)
-	errcheck(err)
-
-	// find the max value for each row in Q_hat
-	max_indices := make([]int, Qhat.Rows())
-	for i := 0; i < Qhat.Rows(); i++ {
-		i_row := Qhat.GetRowVector(i)
-		max_indices[i] = argmax(i_row.Array())
-		fmt.Printf("User w/ID: %v will like product w/ID: %v \n", i, max_indices[i])
+// Returns confidence for a user/product for the Implicit Case.
+func Predict(Qhat *DenseMatrix, user, product int) (float64, error) {
+	if user > Qhat.Rows() || product > Qhat.Cols() {
+		return 0.0, errors.New("User/Product index out of range")
 	}
-	return max_indices
+	return Qhat.Get(user, product), nil
+}
+
+func oppositeWeights(Q *DenseMatrix) *DenseMatrix {
+	mat := Q.Array()
+	for i := 0; i < len(mat); i++ {
+		if mat[i] > 0 {
+			mat[i] = 0
+		} else {
+			mat[i] = 1
+		}
+	}
+	return MakeDenseMatrix(mat, Q.Rows(), Q.Cols())
+}
+
+// looks at the model generated by ALS and makes a user/product prediction
+func GetTopNRecommendations(Q, Qhat *DenseMatrix, user, n int, products []string) ([]string, error) {
+	qhat := Qhat.Copy()
+	inverseWeights := oppositeWeights(Q)
+	qhat = simpleTimes(qhat, inverseWeights)
+
+	if user > qhat.Rows() || n > qhat.Cols() {
+		return nil, errors.New("User/Product index out of range")
+	} else {
+		user_row := qhat.GetRowVector(user).Array()
+		productScores := make(map[float64]string, 0)
+		// make score - product map if product list is present. Else use indices.
+		if products != nil {
+			for idx, val := range user_row {
+				productScores[val] = products[idx]
+			}
+		} else {
+			for idx, val := range user_row {
+				productScores[val] = strconv.Itoa(idx)
+			}
+		}
+		// Sort user row
+		sort.Sort(sort.Reverse(sort.Float64Slice(user_row)))
+		// get top-N recommendations
+		var recommendations []string
+		for i := 0; i < n; i++ {
+			recommendations = append(recommendations, productScores[user_row[i]])
+		}
+		return recommendations, nil
+	}
 }
