@@ -29,9 +29,9 @@ Collaborative Filtering (CF) is oftentimes used for item recommendations for use
  - If you have any questions/comments, *please* feel free to reach me at tim [dot] kaye [at] lytics [dot] io
 
 **TODO**
--[x] Finish memory based recommendations
--[] Be able to read in text files
--[] Fine tune algs
+> - [x] Finish memory based recommendations
+- [ ] Be able to read in text files
+- [ ] Fine tune algs
 
 
 
