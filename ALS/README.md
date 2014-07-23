@@ -22,7 +22,8 @@ Relies on Skelter John's *matrix.go* package for some matrix functionality.
 ``` 
 func main() {
 	// For this instance, cols indicate product ID ; rows indicate user ID
-	Q := MakeDenseMatrix([]float64{5, 5, 5, 0, 1,
+	Q := MakeRatingMatrix([]float64{
+		5, 5, 5, 0, 1,
 		0, 0, 0, 4, 1,
 		1, 2, 3, 3, 1,
 		2, 0, 4, 1, 0,
@@ -43,9 +44,11 @@ func main() {
 	// Get Prediction for a user/product pair.
 	fmt.Println(Predict(Qhat, 2, 1))
 
-	// Get top - N predictions based off of Qhat for a given user ID.
-	// Args: Original user/product matrix, trained model, n, product names.
+	// Get top - N recommended products based off of Qhat for a given user ID.
+	// Args: Original user/product matrix, trained model, N, product names.
+	// Returns []string of length N & error - if applicable
 	// If Product Names is nil, then returns top indices for each user. Returns in descending order.
+
 	products := []string{"Macy Gray", "The Black Keys", "Spoon", "A Tribe Called Quest", "Kanye West"}
 	fmt.Println(GetTopNRecommendations(Q, Qhat, 1, 2, products))
 

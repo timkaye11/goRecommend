@@ -34,6 +34,10 @@ func MakeWeightMatrix(mat *DenseMatrix) *DenseMatrix {
 	return MakeDenseMatrix(newvalues, mat.Rows(), mat.Cols())
 }
 
+func MakeRatingMatrix(ratings []float64, rows, cols int) *DenseMatrix {
+	return MakeDenseMatrix(ratings, rows, cols)
+}
+
 // creates the confidence matrix for the implicit ALS algorithm
 func MakeCMatrix(mat *DenseMatrix) *DenseMatrix {
 	values := mat.Array()

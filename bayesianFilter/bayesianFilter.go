@@ -11,6 +11,10 @@ var (
 	NA       = m.NaN()
 )
 
+func MakeRatingMatrix(ratings []float64, rows, cols int) *DenseMatrix {
+	return MakeDenseMatrix(ratings, rows, cols)
+}
+
 func argmax(args []float64) (index int) {
 	index = 0
 	first := 0.0

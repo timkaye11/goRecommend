@@ -1,6 +1,8 @@
 ### Memory-Based Collaborative Filtering (in Go)
 
-To quote wikipedia, "this is used for making recommendations". 
+![](http://progressed.io/bar/100)
+
+> To quote wikipedia, "this is used for making recommendations". 
 
 This uses a neighest-neighbor based algorithm to compare a users product selection with other users and recommends products for a selected uesr. Cosine similarity is used when there is an explicit rating system, and jaccard similarity is used for the binary case. 
 
