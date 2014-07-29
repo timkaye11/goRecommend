@@ -2,8 +2,9 @@ package ALS
 
 import (
 	"fmt"
-	. "github.com/skelterjohn/go.matrix"
 	"testing"
+
+	. "github.com/skelterjohn/go.matrix"
 )
 
 func Assert(t *testing.T, condition bool, args ...interface{}) {

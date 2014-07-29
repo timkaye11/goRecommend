@@ -17,7 +17,7 @@ To use,  download the package:
 import "github.com/timkaye11/goRecommend/collabFilter"
 
 func main() {
-	// User product matrix. 0 or math.NaN indicates products not viewed by user.
+	// User product matrix. 0 indicates products not viewed by user.
 	// Uses cosine similarity.
 
 
@@ -28,6 +28,10 @@ func main() {
 		4, 4, 1, 2, 3,
 		2, 4, 0, 3, 4,
 		3, 1, 3, 0, 4}, 5, 5)
+
+	// Can also load/build matrix from a text file
+	prefs := Load("path/to/file", "separator")
+
 
 	// product titles <- column titles for prefs matrix
 	products := []string{"Spiderman", "Big Momma's House", "Vanilla Sky", "Pacific Rim", "The Mask"}

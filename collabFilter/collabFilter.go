@@ -3,10 +3,11 @@ package collabFilter
 import (
 	"errors"
 	"fmt"
-	. "github.com/skelterjohn/go.matrix"
 	"math"
 	"sort"
 	"strconv"
+
+	. "github.com/skelterjohn/go.matrix"
 )
 
 func errcheck(err error) {

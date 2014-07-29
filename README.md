@@ -2,7 +2,7 @@
 
 > Recommendation algorithms (Collaborative Filtering) in Go! 
 
-![](http://progressed.io/bar/93)
+![](http://progressed.io/bar/100)
 
 ### Background 
 Collaborative Filtering (CF) is oftentimes used for item recommendations for users, and many libraries exist for other languages (popular implementations include Mahout, Prediction.IO, Apache MLLib ALS etc..). As there are very few machine learning packages out there for [Go](http://www.golang.org), I decided to put together some model based CF algorithms that I thought were interesting. Programming in Go has many benefits - namely speed/efficiency, but also the bare-bones nature allows for more customization and makes ML programming less black-box-y. 
@@ -19,6 +19,7 @@ Collaborative Filtering (CF) is oftentimes used for item recommendations for use
 - Similarity/Memory-based (using correlation, cosine and jaccard similarity) based CF, which incorporates a nearest neighbor type metric can be found in the CF folder.
 	* Tests complete
 	* See README for more details
+	* Todo: consider approximate nearest neighbors algorithm. 
 
 *Most* of the recommendation algorithms in this package are briefly outlined in [this article](http://www.hindawi.com/journals/aai/2009/421425/)
 
@@ -30,8 +31,7 @@ Collaborative Filtering (CF) is oftentimes used for item recommendations for use
 
 **TODO**
 -[x] Finish memory based recommendations
--[] Be able to read in text files
--[] Fine tune algs
+-[x] Be able to read in text files
 
 
 

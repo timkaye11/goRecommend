@@ -3,11 +3,12 @@ package ALS
 import (
 	"errors"
 	"fmt"
-	. "github.com/skelterjohn/go.matrix"
 	"math"
 	"math/rand"
 	"sort"
 	"strconv"
+
+	. "github.com/skelterjohn/go.matrix"
 )
 
 var (
