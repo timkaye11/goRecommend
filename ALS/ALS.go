@@ -170,10 +170,9 @@ func matrixMax(mat *DenseMatrix) float64 {
 	return max
 }
 
-// Uses the alternating least squares algorithm for user/product recommendations.
 // Params: the user/product matrix, number of factors for recommendation, iterations, and lambda value for ALS.
 // Returns the trained matrix with predictions for 0 valued entries, and the final error calculation (float64)
-func TrainALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) (*DenseMatrix, float64) {
+func Train(Q *DenseMatrix, n_factors, iterations int, lambda float64) (*DenseMatrix, float64) {
 	W := makeWeightMatrix(Q)
 	maxval := matrixMax(Q)
 	X, Y := makeXY(Q, n_factors, maxval, 47)
@@ -222,13 +221,10 @@ func TrainALS(Q *DenseMatrix, n_factors, iterations int, lambda float64) (*Dense
 	return weighted_Qhat, errors[len(errors)-1]
 }
 
-// Alternating Least Squares for the Implicit Case
-// Follows the matrix formulas for X and Y outlined in the paper
-// 'Collaborative Filtering For Implicit Feedback Datasets' by Hu, Koren et al.
 // Params: the rating matrix, number of factors, number of iterations, and lambda for building
 // recommendation matrix.
 // Returns the confidence matrix on a scale from 0 to 1.
-func TrainALS_Implicit(R *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
+func TrainImplicit(R *DenseMatrix, n_factors, iterations int, lambda float64) *DenseMatrix {
 	P := makeWeightMatrix(R)
 	C := makeCMatrix(R)
 	X, Y := makeXY(R, n_factors, 5, 47)
