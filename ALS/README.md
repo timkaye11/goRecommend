@@ -19,7 +19,7 @@ Relies on Skelter John's *matrix.go* package for some matrix functionality.
 	 ``` gpm install```
 
 3. Run Code
-``` 
+```go
 import "github.com/timkaye11/goRecommend/ALS"
 
 func main() {

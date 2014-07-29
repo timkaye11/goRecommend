@@ -5,11 +5,11 @@
 ![](http://progressed.io/bar/100)
 
 ### Background 
-Collaborative Filtering (CF) is oftentimes used for item recommendations for users, and many libraries exist for other languages (popular implementations include Mahout, Prediction.IO, Apache MLLib ALS etc..). As there are very few machine learning packages out there for [Go](http://www.golang.org), I decided to put together some model based CF algorithms that I thought were interesting. Programming in Go has many benefits - namely speed/efficiency, but also the bare-bones nature allows for more customization and makes ML programming less black-box-y. 
+Collaborative Filtering (CF) is oftentimes used for item recommendations for users, and many libraries exist for other languages (popular implementations include Mahout, Prediction.IO, Apache MLLib ALS etc..). As there are very few machine learning packages out there for [Go](http://www.golang.org), I decided to put together some model based CF algorithms that I thought were interesting. 
 
 ---
 
-### Collaborative Filters inside this package
+### Collaborative Filters inside this package. See each folder for examples/specifications
 
 - Alternating Least Squares (more info [here](http://labs.yahoo.com/files/HuKorenVolinsky-ICDM08.pdf) ) for both the Implicit and Explicit Case
 	* Tests now complete

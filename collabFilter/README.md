@@ -13,7 +13,7 @@ To use,  download the package:
 ---
 #### Example
 
-```
+```go
 import "github.com/timkaye11/goRecommend/collabFilter"
 
 func main() {
