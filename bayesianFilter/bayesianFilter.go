@@ -1,9 +1,11 @@
+// Bayesian Filter collaborative filtering in Go
 package bayesianFilter
 
 import (
 	"errors"
-	. "github.com/skelterjohn/go.matrix"
 	m "math"
+
+	. "github.com/skelterjohn/go.matrix"
 )
 
 var (
@@ -11,6 +13,7 @@ var (
 	NA       = m.NaN()
 )
 
+// returns the matrix of ratings.
 func MakeRatingMatrix(ratings []float64, rows, cols int) *DenseMatrix {
 	return MakeDenseMatrix(ratings, rows, cols)
 }
@@ -27,6 +30,7 @@ func argmax(args []float64) (index int) {
 	return
 }
 
+//returns the product of elements in a vector.
 func Prod(values []float64) float64 {
 	prod := float64(1)
 	for _, val := range values {
@@ -35,6 +39,7 @@ func Prod(values []float64) float64 {
 	return prod
 }
 
+// returns the % a value occured in a vector.
 func PercentOccurences(row []float64, val float64) (percent float64) {
 	num := 0
 	length := 0
@@ -49,6 +54,7 @@ func PercentOccurences(row []float64, val float64) (percent float64) {
 	return float64(num) / float64(length)
 }
 
+// returns the # of occurences a value occured in a vector.
 func NumOccurences(row []float64, val float64) int {
 	num := 0
 	for _, x := range row {
@@ -69,12 +75,15 @@ func ToMap(col []float64) map[float64]float64 {
 	return mapping
 }
 
+// Laplace smoother for the bayesian filter.
 func LaplaceSmoother(count, countUser int) float64 {
 	numerator := count + len(ClassSet)
 	denominator := countUser + 1
 	return (float64(denominator) / float64(numerator))
 }
 
+/// Bayesian filter recommendation returns rating for a given user, item pair.
+// Returns predictions, the index of the max prediction and an error if required.
 func BayesianFilter(mat *DenseMatrix, user, item int) (preds []float64, max int, err error) {
 	if user >= mat.Rows() || item > mat.Cols() {
 		indexErr := errors.New("Check your matrix indices")

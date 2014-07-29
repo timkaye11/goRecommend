@@ -1,3 +1,4 @@
+// User-item recommendation using nearest-neighrbor collaborative filtering in Go
 package collabFilter
 
 import (
@@ -28,7 +29,7 @@ func DotProduct(a, b []float64) (float64, error) {
 	return prod, nil
 }
 
-// For cosine similarity
+// For cosine similarity. Returns sqrt of sum of squared elements.
 func NormSquared(a []float64) float64 {
 	sum := float64(0)
 	for i := 0; i < len(a); i++ {
@@ -38,6 +39,7 @@ func NormSquared(a []float64) float64 {
 }
 
 // Cosine Similarity between two vectors
+// Returns cos similarity on a scale from 0 to 1.
 func CosineSim(a, b []float64) float64 {
 	dp, err := DotProduct(a, b)
 	errcheck(err)
@@ -75,7 +77,7 @@ func replaceNA(prefs *DenseMatrix) *DenseMatrix {
 
 // Gets Recommendations for a user (row index) based on the prefs matrix.
 // Uses cosine similarity for rating scale, and jaccard similarity if binary
-func getRecommendations(prefs *DenseMatrix, user int, products []string) ([]string, []float64, error) {
+func GetRecommendations(prefs *DenseMatrix, user int, products []string) ([]string, []float64, error) {
 	// make sure user is in the preference matrix
 	if user >= prefs.Rows() {
 		return nil, nil, errors.New("user index out of range")
@@ -116,7 +118,7 @@ func sum(x []float64) float64 {
 
 // Gets Recommendations for a user (row index) based on the prefs matrix.
 // Uses cosine similarity for rating scale, and jaccard similarity if binary
-func getBinaryRecommendations(prefs *DenseMatrix, user int, products []string) ([]string, []float64, error) {
+func GetBinaryRecommendations(prefs *DenseMatrix, user int, products []string) ([]string, []float64, error) {
 	// make sure user is in the preference matrix
 	if user >= prefs.Rows() {
 		return nil, nil, errors.New("user index out of range")

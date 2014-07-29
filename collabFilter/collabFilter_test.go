@@ -48,7 +48,7 @@ func TestRatingRecommendations(t *testing.T) {
 		3, 1, 3, 0, 4}, 5, 5)
 	products := []string{"Spiderman", "Big Momma's House", "Vanilla Sky", "Pacific Rim", "The Mask"}
 	// gets recommendations for user 1 (second row) for un-rated products.
-	prods, scores, err := getRecommendations(prefs, 1, products)
+	prods, scores, err := GetRecommendations(prefs, 1, products)
 	fmt.Println(prods)
 
 	// make sure these recommendations make sense, and match up to python implementation.
@@ -69,7 +69,7 @@ func TestBinaryRecommendations(t *testing.T) {
 	products := []string{"Spiderman", "Big Momma's House", "Vanilla Sky", "Pacific Rim", "The Mask"}
 	// Returns recommended products for User ID 1 (second row) in descending order, w/ corresponding confidence/probability,
 	// and error - if applicable.
-	prods, scores, err := getBinaryRecommendations(binaryPrefs, 1, products)
+	prods, scores, err := GetBinaryRecommendations(binaryPrefs, 1, products)
 
 	Assert(t, err == nil)
 	Assert(t, prods[0] == "Spiderman", prods[1] == "Pacific Rim")
