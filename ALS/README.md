@@ -43,7 +43,7 @@ func main() {
 	// Train Model Using Explicit ALS. This means that users rated each product on a scale
 	// where 0 indicates not rated
 	// Prints out the final error value.
-	Qhat := TrainALS(Q, n_factors, n_iterations, lambda)
+	Qhat := Train(Q, n_factors, n_iterations, lambda)
 	fmt.Println(Qhat)
 
 	// Get Prediction for a user/product pair.
@@ -58,7 +58,7 @@ func main() {
 	fmt.Println(GetTopNRecommendations(Q, Qhat, userID, n, products))
 
 	// Implicit. Can do 'GetTopNRecommendations' in implicit case too. 
-	R := TrainALS_Implicit(Q, 5, 10, 0.01)
+	R := TrainImplicit(Q, 5, 10, 0.01)
 	fmt.Println(Predict(R, 1, 1))
 
 }

@@ -38,7 +38,7 @@ func makeWeightMatrix(mat *DenseMatrix) *DenseMatrix {
 }
 
 // Wrapper for MakeDenseMatrix. Returns rating matrix
-func makeRatingMatrix(ratings []float64, rows, cols int) *DenseMatrix {
+func MakeRatingMatrix(ratings []float64, rows, cols int) *DenseMatrix {
 	return MakeDenseMatrix(ratings, rows, cols)
 }
 

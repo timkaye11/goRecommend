@@ -36,7 +36,7 @@ func main() {
 	// product titles <- column titles for prefs matrix
 	products := []string{"Spiderman", "Big Momma's House", "Vanilla Sky", "Pacific Rim", "The Mask"}
 	// gets recommendations for user 1 (second row) for un-rated products.
-	prods, scores, err := getRecommendations(prefs, 1, products)
+	prods, scores, err := GetRecommendations(prefs, 1, products)
 	if err != nil {
 		fmt.Println("WHAT!?")
 	}
@@ -52,7 +52,7 @@ func main() {
 		1, 0, 1, 1, 1}, 5, 5)
 	// Returns recommended products for User ID 1 (second row) in descending order, w/ corresponding confidence/probability,
 	// and error - if applicable.
-	prods, scores, _ := getBinaryRecommendations(binaryPrefs, 1, products)
+	prods, scores, _ := GetBinaryRecommendations(binaryPrefs, 1, products)
 	...
 
 
